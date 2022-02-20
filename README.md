@@ -1,6 +1,6 @@
 # A Wide & Deep Learning Sharing Input Data for Regression Analysis
 
-A PyTorch implementation of WDSI proposed in our paper:
+A PyTorch implementation of WDSI proposed in our paper:<br>
 [*A Wide & Deep Learning Sharing Input Data for Regression Analysis*](https://doi.org/10.1109/BigComp48618.2020.0-108)
 
 ## Citation

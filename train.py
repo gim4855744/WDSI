@@ -4,15 +4,17 @@ import random
 import torch
 import os
 
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
+from torch.utils.data.dataloader import DataLoader
 from absl import app, flags
 
 from model import WDSI
+from dataset import DataDriver, TensorDataset
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('data_dir', '/home/minkyu/Datasets/HousePrices', 'dataset directory path')  # the default value will be removed
 flags.DEFINE_string('save_dir', './save/', 'save directory path')
+# other flags will be constructed
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -25,53 +27,72 @@ random.seed(seed)
 def main(argv):
 
     data_dir = FLAGS.data_dir
+    save_dir = FLAGS.save_dir
     val_size = 0.1
     emb_size = 8
+    batch_size = 128
+    lr = 1e-4
+    epochs = 100
 
     train_data_path = os.path.join(data_dir, 'train.csv')
 
     data = pd.read_csv(train_data_path)
+    data_driver = DataDriver()
     train_data, val_data = train_test_split(data, test_size=val_size)
 
-    numerical_fields_target_names = [column for column in data.columns if data[column].dtype != 'object']
-    categorical_fields_names = [column for column in data.columns if data[column].dtype == 'object']
+    train_numerical_fields, train_categorical_fields, train_target =\
+        data_driver.normalize(train_data, save_dir, train=True)
+    val_numerical_fields, val_categorical_fields, val_target =\
+        data_driver.normalize(val_data, save_dir, train=False)
 
-    minmax_scaler = MinMaxScaler(feature_range=(-1, 1))
-    train_numerical_fields_target = minmax_scaler.fit_transform(train_data[numerical_fields_target_names])
-    val_numerical_fields_target = minmax_scaler.transform(val_data[numerical_fields_target_names])
-    train_numerical_fields = train_numerical_fields_target[:, :-1]
-    val_numerical_fields = val_numerical_fields_target[:, :-1]
-    train_target = train_numerical_fields_target[:, -1]
-    val_target = val_numerical_fields_target[:, -1]
-    # save scaler
+    train_dataset = TensorDataset(train_numerical_fields, train_categorical_fields, train_target)
+    val_dataset = TensorDataset(val_numerical_fields, val_categorical_fields, val_target)
 
-    label_encoders = {feature_name: LabelEncoder() for feature_name in categorical_fields_names}
-    train_categorical_fields, val_categorical_fields = [], []
-    num_features_in_categorical_fields = []
-    for field_name in categorical_fields_names:
-        train_categorical_fields.append(label_encoders[field_name].fit_transform(train_data[field_name]))
-        val_categorical_fields.append(label_encoders[field_name].transform(val_data[field_name]))
-        num_features_in_categorical_fields.append(len(label_encoders[field_name].classes_))
-    # save encoders
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    train_numerical_fields = np.array(train_numerical_fields)
-    train_categorical_fields = np.array(train_categorical_fields).transpose()
-    train_target = np.array(train_target).reshape(-1, 1)
-
-    val_numerical_fields = np.array(val_numerical_fields)
-    val_categorical_fields = np.array(val_categorical_fields).transpose()
-    val_target = np.array(val_target).reshape(-1, 1)
-
-    train_numerical_fields = torch.tensor(train_numerical_fields, dtype=torch.float32)
-    train_categorical_fields = torch.tensor(train_categorical_fields, dtype=torch.int32)
-    train_target = torch.tensor(train_target, dtype=torch.float32)
-
-    num_numerical_fields = train_numerical_fields.shape[1]
-    num_categorical_fields = train_categorical_fields.shape[1]
+    num_numerical_fields = data_driver.get_num_numerical_fields()
+    num_categorical_fields = data_driver.get_num_categorical_fields()
+    num_features_in_categorical_fields = data_driver.get_num_features_in_categorical_fields()
 
     model = WDSI(num_numerical_fields, num_categorical_fields, num_features_in_categorical_fields, emb_size)
-    predicts = model(train_numerical_fields, train_categorical_fields)
-    print(predicts.shape)
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+    min_val_loss = 9999.
+
+    for epoch in range(epochs):
+
+        train_losses, val_losses = [], []
+
+        model.train()
+        for batch_numerical_fields, batch_categorical_fields, batch_target in train_loader:
+            optimizer.zero_grad()
+            predicts = model(batch_numerical_fields, batch_categorical_fields)
+            train_loss = criterion(predicts, batch_target)
+            train_loss.backward()
+            optimizer.step()
+            train_losses.append(train_loss.item())
+
+        with torch.no_grad():
+            model.eval()
+            for batch_numerical_fields, batch_categorical_fields, batch_target in val_loader:
+                predicts = model(batch_numerical_fields, batch_categorical_fields)
+                val_loss = criterion(predicts, batch_target)
+                val_losses.append(val_loss.item())
+
+        mean_train_loss = np.mean(train_losses)
+        mean_val_loss = np.mean(val_losses)
+
+        print("Epoch {:03d}, Train Loss: {:.5f}, Val Loss: {:.5f}".format(epoch + 1,
+                                                                          mean_train_loss,
+                                                                          mean_val_loss))
+
+        if min_val_loss > mean_val_loss:
+            min_val_loss = mean_val_loss
+            torch.save(model.state_dict(), os.path.join(save_dir, 'WDSI.pth'))
+
+    print("Best Val Loss: {}".format(min_val_loss))
 
 
 if __name__ == '__main__':

@@ -28,6 +28,8 @@ class WDSI(Module):
 
         self._bias = Parameter(torch.empty(1))
 
+        self.reset_parameters()
+
     def reset_parameters(self):
         torch.nn.init.zeros_(self._bias)
 

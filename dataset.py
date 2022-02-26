@@ -78,11 +78,11 @@ class DataDriver:
 
 class TensorDataset(Dataset):
 
-    def __init__(self, numerical_fields, categorical_fields, target):
+    def __init__(self, numerical_fields, categorical_fields, target, device):
 
-        self._numerical_fields = torch.tensor(numerical_fields, dtype=torch.float32)
-        self._categorical_fields = torch.tensor(categorical_fields, dtype=torch.int32)
-        self._target = torch.tensor(target, dtype=torch.float32)
+        self._numerical_fields = torch.tensor(numerical_fields, dtype=torch.float32, device=device)
+        self._categorical_fields = torch.tensor(categorical_fields, dtype=torch.int32, device=device)
+        self._target = torch.tensor(target, dtype=torch.float32, device=device)
         self._num_data = self._target.shape[0]
 
     def __getitem__(self, index):

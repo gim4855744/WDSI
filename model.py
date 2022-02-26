@@ -1,6 +1,6 @@
 import torch
 
-from torch.nn import Module, Parameter
+from torch.nn import Module, ModuleList, Parameter
 from torch.nn import Embedding
 
 from component import WideComponent, DeepComponent
@@ -12,7 +12,9 @@ class WDSI(Module):
 
         super(WDSI, self).__init__()
 
-        self._embeddings = [Embedding(num_features, emb_size) for num_features in num_features_in_categorical_fields]
+        self._embeddings = ModuleList([
+            Embedding(num_features, emb_size) for num_features in num_features_in_categorical_fields
+        ])
 
         num_features = num_numerical_fields + num_categorical_fields * emb_size
 

@@ -45,8 +45,8 @@ def main(argv):
     val_numerical_fields, val_categorical_fields, val_target =\
         data_driver.normalize(val_data, save_dir, train=False)
 
-    train_dataset = TensorDataset(train_numerical_fields, train_categorical_fields, train_target)
-    val_dataset = TensorDataset(val_numerical_fields, val_categorical_fields, val_target)
+    train_dataset = TensorDataset(train_numerical_fields, train_categorical_fields, train_target, device)
+    val_dataset = TensorDataset(val_numerical_fields, val_categorical_fields, val_target, device)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -55,7 +55,7 @@ def main(argv):
     num_categorical_fields = data_driver.get_num_categorical_fields()
     num_features_in_categorical_fields = data_driver.get_num_features_in_categorical_fields()
 
-    model = WDSI(num_numerical_fields, num_categorical_fields, num_features_in_categorical_fields, emb_size)
+    model = WDSI(num_numerical_fields, num_categorical_fields, num_features_in_categorical_fields, emb_size).to(device)
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 

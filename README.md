@@ -31,6 +31,11 @@ field1,field2,...,fieldN,target
 python train.py
 ```
 
+### test
+```
+python test.py
+```
+
 ## Citation
 ```
 @inproceedings{

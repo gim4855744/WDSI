@@ -12,8 +12,8 @@ from dataset import DataDriver, TensorDataset
 from model import WDSI
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('data_dir', '/home/minkyu/Datasets/HousePrices', 'dataset directory path')  # the default value will be removed
-flags.DEFINE_string('save_dir', './save/', 'save directory path')
+flags.DEFINE_string('data_dir', '', 'dataset directory path')
+flags.DEFINE_string('save_dir', '', 'save directory path')
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
